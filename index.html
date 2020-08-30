@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<title>My Personal InfoSec Musings</title>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.21/css/dataTables.bootstrap4.min.css" />
+<meta charset="utf-8">
+<xmp theme="paper" style="display:none;">
+### `whoami`
+
+My name is [Peter Crampton](https://www.linkedin.com/in/peter-crampton-962002127/):
+-   B.S. in Computer Science (Class of 2020, Magna Cum Laude) from [Drexel University](https://drexel.edu/)
+-   Live in the Greater Philadelphia Area
+
+My interests are mainly:
+-   Penetration testing
+-   Software development
+-   Cryptography
+
+For professional inquiries contact me at <a href="mailto:cramppet@protonmail.com">cramppet@protonmail.com</a>
+
+### Resume
+
+- You can find my resume as a [PDF here](PeterCrampton_Resume.pdf)
+
+### Projects
+
+- [SANCrawler](https://github.com/cramppet/sancrawler2)
+- [CRYSTAL BALL](https://github.com/cramppet/crystal_ball)
+
+### Blogs
+
+This disclaimer informs readers that the views, thoughts, and opinions expressed
+in any post below belong solely to the author, and not necessarily to the
+author's employer, organization, committee or other group or individual. 
+
+<table id="index_table" class="table table-striped table-bordered" style="width:100%">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Title</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!--
+        <tr>
+            <td>08/10/2020</td>
+            <td>
+                <a href="breaking_rsa/index.html">
+                    How to Break RSA - Writing a simple Quadratic Sieve in Python
+                </a>
+            </td>
+            <td>
+                I will explain the fundamentals of RSA, how to break it (in
+                theory) and provide an implementation of the Quadratic Sieve
+                factorization algorithm which can be used to attempt
+                factorizations of very very small RSA moduli.
+            </td>
+        </tr>
+        <tr>
+            <td>08/06/2020</td>
+            <td>
+                <a href="iconic/index.html">
+                    Project ICONIC: Finding assets with Computer Vision
+                </a>
+            </td>
+            <td>
+                You can use Computer Vision algorithms to programmatically
+                identify assets of a target. By supplying known good samples,
+                you can perform broad discovery on cloud providers like AWS and
+                Azure.
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="aof_part4/index.html">
+                    The Art of Footprinting - Part IV - Finding network blocks
+                </a>
+            </td>
+            <td>
+                A separate topic from previous posts, network blocks are another
+                foundational resource that organizations manage. This post will
+                explore my methodology for enumerating network blocks (CIDR
+                prefixes) that belong to entities of interest. 
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="aof_part3/index.html">
+                    The Art of Footprinting - Part III - Finding subdomains
+                </a>
+            </td>
+            <td>
+                After top-level domains have been identified the process of
+                subdomain enumeration is often trivially easy. I will mainly
+                discuss the automated tooling which I have personally found to
+                be the most effective in finding subdomains. Additionally, the
+                topic of DNS bruteforcing will be discussed in some detail.
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="aof_part2/index.html">
+                    The Art of Footprinting - Part II - Finding domains
+                </a>
+            </td>
+            <td>
+                This post explores the methods I use to expand the scope of a
+                footprint by linking other top-level (TLDs) to an initial set of
+                identified domains. Topics include: reverse WHOIS, DNS, X.509.
+            </td>
+        </tr>
+        -->
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="aof_part1/index.html">
+                    The Art of Footprinting - Part I - Finding subsidiaries
+                </a>
+            </td>
+            <td>
+                The foundation of building a footprint is understanding the
+                organizational structure of a company. In this post I will
+                detail my own personal method for enumerating corporate
+                structures and translating those structures into domain names
+                which can be used in subsequent parts of an footprinting
+                process.
+            </td>
+        </tr>
+        <!--
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="markov_dns/index.html">
+                    Using Markov Chains to bruteforce DNS
+                </a>
+            </td>
+            <td>
+                DNS bruteforcing can be an effective method for identifying
+                subdomains not discovered using passive enumeration. In this
+                post, I will explore an interesting way of performing DNS
+                bruteforcing using a Machine Learning based approach. 
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="reverse_x509/index.html">
+                    Reverse X509 - Fast and easy enumeration with TLS metadata
+                </a>
+            </td>
+            <td>
+                With most companies these days using WHOIS domain privacy and
+                no longer self-hosting their own DNS infrastructure, classical
+                techniques to enumerate top-level domains (TLDs) appear to be
+                dying at a rapid rate. In this post, I'll show you the reverse
+                X.509 technique, explain it's history and show you the tooling
+                that I've created to do it: <strong>SANCrawler</strong>.
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="rdap/index.html">
+                    Is RDAP for Penetration Testers?
+                </a>
+            </td>
+            <td>
+                In this post I explore the Registry Data Access Protocol (RDAP)
+                and explain it's benefits/weaknesses in relation the classic
+                WHOIS protocol and the WHOIS RESTful Web Services (RWS) provided
+                by the ARIN/RIPE-NCC Regional Internet Registries for doing
+                network block enumeration.
+            </td>
+        </tr>
+        <tr>
+            <td>08/05/2020</td>
+            <td>
+                <a href="lync_recon/index.html">
+                    Finding connected domains using Skype for Business metadata
+                </a>
+            </td>
+            <td>
+                In this post I explore finding additional linked top-level
+                domains (TLDs) using the Internet-wide mass scanning service
+                Censys. I combine this data source with an observation about the
+                Skype for Business infrastructure to find connected domains of
+                an organization.
+            </td>
+        </tr>
+        -->
+    </tbody>
+</table>
+</xmp>
+<script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
+<script>$(document).ready(() => $('#index_table').DataTable());</script>
+</html>
