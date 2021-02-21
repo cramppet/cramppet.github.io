@@ -1,0 +1,14 @@
+{
+  "data": [
+    [
+      "August 05, 2020",
+      "<a href=\"aof_part1/index.html\">How to do a Footprint - Part I - Finding subsidiaries</a>",
+      "The foundation of building a footprint is understanding the organizational structure of a company. In this post I will detail my own personal method for enumerating corporate structures and translating those structures into domain names which can be used in subsequent parts of an footprinting process."
+    ],
+    [
+      "February 21, 2021",
+      "<a href=\"rev_shell_upgrade/index.html\">Don't believe your lying eyes: Why getting/upgrading a reverse shell is worth it</a>",
+      "If you have a command execution (ex. via SQL injection) be sure to spend the time to get a reverse shell from it to avoid headaches and wasting your time. In this post I explore how I learned this lesson the hard way."
+    ]
+  ]
+}

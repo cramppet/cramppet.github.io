@@ -1,11 +1,21 @@
 <!DOCTYPE html>
 <html>
-<title>The Art of Footprinting - Part I - Finding subsidiaries</title>
-<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<head>
+<title>How to do a Footprint - Part I - Finding subsidiaries - August 05, 2020</title>
 <link rel="icon" type="image/png" href="../favicon-16x16.png" sizes="16x16" />
 <meta charset="utf-8">
-<xmp theme="paper" style="display:none;">
-### Introduction
+<style>
+	img {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+		width: 75%;
+	}
+</style>
+</head>
+<body>
+<textarea theme="united" toc="true" style="display:none;">
+# Introduction
 
 When creating a footprint for a penetration test, the first thing to get
 straight is whom exactly are you targeting. Often in addition to an organization
@@ -50,7 +60,7 @@ kind of enumeration in an automated fashion in general.
 - [OpenCorporates](https://opencorporates.com)
 - [Dun & Bradstreet](https://www.dnb.com/)
 
-### CorpWatch API
+# CorpWatch API
 
 I found this API a few years back and it's highly useful. You can read about
 what CorpWatch does specifically on [their website
@@ -92,7 +102,7 @@ You can invoke the script I linked above like this:
 
 <a href="corp_enum_walt_disney.png"><img width="1200" src="corp_enum_walt_disney.png" /></a>
 
-### Crunchbase
+# Crunchbase
 
 Crunchbase is a knowledge base which helps investors make informed decisions.
 Crunchbase tracks companies and certain properties of them. One property of
@@ -107,7 +117,7 @@ compared to the API plans is relatively inexpensive:
 
 <a href="crunchbase_walt_disney.png"><img src="crunchbase_walt_disney.png" /></a>
 
-### Google
+# Google
 
 Simple and easy, you can query Google's Knowledge Graph using their web
 interface and get back known subsidiaries:
@@ -122,7 +132,7 @@ instances, the former selects only the first.
 There are several different variations of output which I've observed which makes
 this task not automation friendly. Manual extraction is the way to go here.
 
-### WikiData
+# WikiData
 
 WikiData is a Knowledge Graph based on the now defunct "Freebase" project. The
 data source is sometimes useful but can be difficult to use for automation
@@ -168,7 +178,7 @@ curl 'https://query.wikidata.org/sparql?format=json&query=+SELECT+DISTINCT+%3Fit
 
 <a href="wikidata_walt_disney5.png"><img src="wikidata_walt_disney5.png" /></a>
 
-### OpenCorporates
+# OpenCorporates
 
 OpenCorporates is yet another service which provides an interface for
 discovering subsidiaries. This source also includes international entities
@@ -209,7 +219,7 @@ curl 'https://api.opencorporates.com/corporate_groupings/Disney' | jq -r .result
 
 <a href="oc_walt_disney3.png"><img src="oc_walt_disney3.png" /></a>
 
-### Dun &amp; Bradstreet
+# Dun &amp; Bradstreet
 
 Dun &amp; Bradstreet are an old-school company which specialize in parsing and
 dealing with SEC filings data. They have a large knowledge base which includes
@@ -269,10 +279,9 @@ manual review:
 <a href="dnb_abc.png"><img src="dnb_abc.png" /></a>
 
 
-### CRYSTAL BALL
+# CRYSTAL BALL
 
 <div class="alert alert-danger" role="alert">
-<i class="fa fa-exclamation-circle"></i>
 This tool should be used with caution. If you blindly accept it's output then
 you will likely enumerate things outside of your scope. **Use this tool
 wisely**.
@@ -317,11 +326,9 @@ depending upon how small or obscure the company is that you targeting your
 millage using this tool is going to vary a lot. **Your best bet is going to
 always validate the output from the tool**.
 
-<center>
-    <a href="tenor.gif"><img src="tenor.gif" /></a>
-</center>
+<a href="tenor.gif"><img src="tenor.gif" /></a>
 
-### Conclusions
+# Conclusions
 
 This post hopefully gave you some insight into how I perform the task of
 identifying subsidiaries.
@@ -330,6 +337,7 @@ Using the list of subsidiary domains, what we will do in the next part is
 attempt to increase the number of total identified domains by using some much
 more automation friendly techniques such as reverse WHOIS, DNS, X.509.
 
-</xmp>
-<script src="https://cdn.ztx.io/strapdown/strapdown.min.js"></script>
+</textarea>
+</body>
+<script src="../vendor/strapdown.min.js"></script>
 </html>
