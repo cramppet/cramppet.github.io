@@ -9,6 +9,11 @@
       "10/09/2022",
       "<a href=\"canary-gate/index.html\">CanaryGate: A silly direct syscall method</a>",
       "CanaryGate is a Hells Gate modification that uses \"canary calls\" to reveal the syscall numbers of hooked NTDLL exports."
+    ],
+    [
+      "10/16/2022",
+      "<a href=\"regulator/index.html\">Regulator: A unique subdomain enumeration method</a>",
+      "Regulator is a tool that combines regular language ranking with regular language induction to automagically learn regexes that describe DNS data"
     ]
   ]
 }
