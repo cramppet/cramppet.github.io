@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Finding SSO Applications with URLScan</title>
+<link rel="icon" type="image/png" href="../favicon-16x16.png" sizes="16x16" />
+<meta charset="utf-8">
+<style>
+	img {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+		width: 75%;
+        border: 1px solid black !important;
+	}
+</style>
+</head>
+<body>
+<textarea theme="united" toc="true" style="display:none;">
+# TL;DR
+
+If a company uses Microsoft Entra ID Single Sign-On, you can often locate
+externally facing SSO apps by searching for auth flow callback URLs in
+[URLScan.io](https://urlscan.io/). 
+
+I published the script to automate the process described in this post
+[here](https://gist.github.com/cramppet/455ed8fe00c11b76efc7dbd25b1ed199).
+
+# Introduction 
+
+In the current business landscape, cloud computing has gained significant
+popularity as a means for enterprises to host their applications. Unfortunately,
+traditional methods of asset identification (footprinting) face challenges when
+it comes to pinpointing cloud-based resources.
+
+This difficulty arises because these assets are often hosted on domains that are
+not directly linked to the organization itself. Instead, they are provided by
+third-party service providers such as Microsoft, Amazon, or Google. Moreover,
+many SaaS products also use their own domains for hosting tenant sites; some
+notable examples are Adobe, Zendesk, and Salesforce.
+
+Regardless of where they are, we want to be able to identify such externally
+facing, cloud-hosted applications, especially those that allow for users to
+authenticate. Knowledge of such applications is useful for building phishing
+campaigns, and in general to understand what software is in use by the
+organization.
+
+# A Method of Discovery
+
+Many organizations are using **Microsoft Entra ID** (formerly known as Azure AD)
+for IAM. For reference, here's how Microsoft describes this offering:
+
+>Microsoft Entra ID is a cloud-based identity and access management service
+>that enables your employees access external resources. Example resources
+>include Microsoft 365, the Azure portal, and thousands of other SaaS
+>applications. (https://learn.microsoft.com/en-us/azure/active-directory/fundamentals/whatis)
+
+## Finding the Tenant ID
+
+One of the most important attributes for any organization using Entra ID is
+their **tenant ID**. This GUID value is easily discoverable, uniquely identifies
+the organization, and provides a useful keyword search term for OSINT
+collection. You can find the tenant ID of any organization by using the
+following well-known URL:
+
+```
+https://login.microsoftonline.com/<tenant-domain>/.well-known/openid-configuration
+```
+
+Assuming the organization is using Entra ID in some capacity, you should be able
+to collect the tenant ID from the response:
+
+![NYT Entra Tenant ID](./nytimes-tenant-lookup.png)
+
+## Searching for SSO-enabled Apps
+
+While not the only option, in this post, I'll talk about using
+[URLScan.io](https://urlscan.io/) as the data source to search in.
+
+URLScan is, in my opinion, still an underutilized OSINT source. It describes
+itself as a "Sandbox for the web" and invites everyone to submit URLs for
+analysis. Notably, since URLScan offers a submission API, it is commonly used to
+perform analysis on URLs submitted from several automated sources.
+
+![URLScan Submission Types](./urlscan-submission-types.png)
+
+These products generally have a great deal of visibility into areas that we
+normally would not see. Moreover, many URL submissions, whether they are
+automatic or manual, are not done in a privacy-conscious way, and scan results
+are left in the `Public` data bucket. In practice this means that we can find
+interesting "deep links" that we normally would have no visibility of.
+
+The final piece of the puzzle in finding SSO apps is the connection to the
+tenant IDs from above. While not every application works this way, many
+application authentication flows typically involve a step that redirects to a
+URL that will contain the authorizing organization's tenant ID. Such steps are
+commonly found in the OAuth and SAML authentication flows:
+
+![OAuth2 Token Flow](./oauth-token-flow.png)
+
+Our task now is to search on URLScan for any occurrences of the tenant ID within
+a URL's path component.
+
+Conveniently, URLScan allows for exactly this type of querying **but you need to
+register for a free account**; this is so we can use the regex based search
+feature within the URL path like so
+`page.url:*5cbd3855-ce3c-4b95-a24a-3779a0405381*`:
+
+![Searching on URLScan](./urlscan-search.png)
+
+You'll notice that there are several SAML callback URLs shown containing the
+tenant ID we searched for. Each of these occurrences is for some SSO-enabled
+application/service that attempted to perform a SAML authentication flow. Now,
+we can navigate to each result link and determine the original URL submission to
+reveal what the application/service was that triggered the SAML flow:
+
+![Discovery of Service](./discovery-of-service.png)
+
+## Automating the process
+
+It's no fun to do this manually, and we can write some simple code to make this
+task easy for ourselves!
+
+**Note:** To use the code below you'll need to create an API key for URLScan and
+export it as an environment variable `URLSCAN_API_KEY`.
+
+```python
+#!/usr/bin/env python3
+
+import os
+import json
+import argparse
+import urllib.request
+
+
+URLSCAN_API_KEY = os.environ.get("URLSCAN_API_KEY", None)
+
+
+def get_tenant_id(domain):
+    """retrieves the organization tenant ID from well-known endpoint"""
+    url = f'https://login.microsoftonline.com/{domain}/.well-known/openid-configuration'
+    res = json.loads(urllib.request.urlopen(url).read())
+    if "error" in res:
+        print('[!]', res['error_description'])
+        return ""
+    return res['issuer'].split('/')[3]
+
+
+def search_for_tenant_id(tenant_id):
+    """searches on URLscan for tenant ID, extracts original task URLs"""
+    url = f'https://urlscan.io/api/v1/search?q=page.url:*{tenant_id}*'
+    try:
+        req = urllib.request.Request(url)
+        req.add_header('api-key', URLSCAN_API_KEY)
+        res = urllib.request.urlopen(req)
+        data = json.loads(res.read())
+        for item in data['results']:
+            print(item['task']['url'])
+    except urllib.error.HTTPError as ex:
+        print('[!]', ex)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('domain')
+    args = vars(parser.parse_args())
+
+    if URLSCAN_API_KEY is None:
+        print('[!] Environment variable "URLSCAN_API_KEY" not set')
+        exit(1)
+
+    tenant_id = get_tenant_id(args['domain'])
+    if tenant_id != "":
+        print('[+] Using tenant ID value:', tenant_id)
+        print('[*] Searching for deep-links...')
+        search_for_tenant_id(tenant_id)
+        print('[+] Done!')
+
+
+if __name__ == '__main__':
+    main()
+```
+
+The code should hopefully be fairly self-explanatory, here's an example run for
+the same `nytimes.com` domain we've been using:
+
+![Using the Automated Tool](./using-tool.png)
+
+# Conclusion
+
+In the output above, it should be noted that 2 of the 4 results were under the
+`nyt.net` domain. These subdomains would hopefully be caught by any footprinting
+process, rendering those results unimportant for us to consider here.
+
+The other two instances are more interesting. The `nytsecurity.zendesk.com`
+hostname is not something that would normally be found during a traditional
+footprint unless some extenuating circumstance was present, ex. DNS CNAME
+record that is easily discoverable.
+
+Finding the public Workday portal for the NYT organization is fairly easy to do,
+but the link shown above appears to be for internal consumption. Subtle details
+found in links like these can sometimes aid in making more convincing phishing
+emails/lures.
+
+One final note is that as mentioned above, URLScan is not the only source that
+you can use to search for links like this. Searching Google, GitHub, and Postman
+with a tenant ID can often yield interesting results, including more impactful
+OSINT discoveries like credentials.
+</textarea>
+</body>
+<script src="../vendor/strapdown.min.js"></script>
+</html>

@@ -14,6 +14,11 @@
       "10/16/2022",
       "<a href=\"regulator/index.html\">Regulator: A unique subdomain enumeration method</a>",
       "Regulator is a tool that combines regular language ranking with regular language induction to automagically learn regexes that describe DNS data"
+    ],
+    [
+      "10/14/2023",
+      "<a href=\"urlscan-sso-apps/index.html\">Finding SSO Applications with URLScan</a>",
+      "Collecting which external applications an organization's employees are using is often useful for phishing. In this post, I show how you can use URLScan.io to determine externally facing SSO apps."
     ]
   ]
 }
